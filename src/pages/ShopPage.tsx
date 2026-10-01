@@ -400,46 +400,83 @@ export const ShopPage: React.FC<ShopPageProps> = ({
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <span className="font-bold text-slate-900 text-base">Filter Catalog</span>
-                <button onClick={() => setMobileFilterOpen(false)}>
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs text-amber-700 font-semibold px-2 py-1 rounded-lg hover:bg-amber-50"
+                  >
+                    Reset All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFilterOpen(false)}
+                    className="p-1 rounded-lg text-slate-500 hover:text-slate-900"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Categories */}
               <div>
-                <label className="block text-xs font-bold text-slate-900 mb-2 uppercase">
-                  Category
+                <label className="block text-xs font-bold text-slate-900 mb-2 uppercase tracking-wide">
+                  Categories
                 </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full p-2 text-xs border border-slate-200 rounded-lg"
-                >
-                  <option value="all">All Categories</option>
+                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  <button
+                    type="button"
+                    onClick={() => setCategory('all')}
+                    className={`p-2 text-left text-xs rounded-xl font-medium border transition-colors ${
+                      category === 'all'
+                        ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    All Categories
+                  </button>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.slug}>
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCategory(c.slug)}
+                      className={`p-2 text-left text-xs rounded-xl font-medium border truncate transition-colors ${
+                        category === c.slug
+                          ? 'bg-slate-900 text-white border-slate-900 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
                       {c.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               {/* Age */}
               <div>
-                <label className="block text-xs font-bold text-slate-900 mb-2 uppercase">
+                <label className="block text-xs font-bold text-slate-900 mb-2 uppercase tracking-wide">
                   Age Range
                 </label>
-                <div className="grid grid-cols-2 gap-1">
-                  {['all', '0-2', '3-5', '6-8', '9-12', '12+'].map((a) => (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { val: 'all', label: 'All Ages' },
+                    { val: '0-2', label: '0–2 Y' },
+                    { val: '3-5', label: '3–5 Y' },
+                    { val: '6-8', label: '6–8 Y' },
+                    { val: '9-12', label: '9–12 Y' },
+                    { val: '12+', label: '12+ Y' },
+                  ].map((a) => (
                     <button
-                      key={a}
+                      key={a.val}
                       type="button"
-                      onClick={() => setAge(a)}
-                      className={`p-2 text-xs rounded border ${
-                        age === a ? 'bg-slate-900 text-white' : 'bg-slate-50'
+                      onClick={() => setAge(a.val)}
+                      className={`py-2 px-1 text-center text-xs rounded-xl border transition-all ${
+                        age === a.val
+                          ? 'bg-slate-900 text-white font-bold border-slate-900 shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700'
                       }`}
                     >
-                      {a === 'all' ? 'All' : `${a} Y`}
+                      {a.label}
                     </button>
                   ))}
                 </div>
@@ -447,9 +484,14 @@ export const ShopPage: React.FC<ShopPageProps> = ({
 
               {/* Price */}
               <div>
-                <label className="block text-xs font-bold text-slate-900 mb-1 uppercase">
-                  Max Price: Rs. {maxPrice.toLocaleString()}
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                    Max Price
+                  </label>
+                  <span className="text-xs font-bold text-amber-700">
+                    Rs. {maxPrice.toLocaleString()}
+                  </span>
+                </div>
                 <input
                   type="range"
                   min="500"
@@ -457,18 +499,34 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                   step="500"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(Number(e.target.value))}
-                  className="w-full accent-slate-900"
+                  className="w-full accent-amber-500 h-2 bg-slate-200 rounded-lg cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                  <span>Rs. 500</span>
+                  <span>Rs. 5,000</span>
+                  <span>Rs. 10,000+</span>
+                </div>
+              </div>
+
+              {/* In stock toggle */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-700">In Stock Only</span>
+                <input
+                  type="checkbox"
+                  checked={inStock}
+                  onChange={(e) => setInStock(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500 rounded"
                 />
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100">
+            <div className="pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
-                className="w-full py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl"
+                className="w-full py-3 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-slate-800 transition-colors"
               >
-                Apply Filters ({total} Items)
+                Apply & View Products ({total})
               </button>
             </div>
           </div>
