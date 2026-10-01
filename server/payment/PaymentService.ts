@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentStatus, PaymentTransaction } from '../../src/types/index.ts';
+import type { PaymentMethod, PaymentStatus, PaymentTransaction } from '../../src/types/index.ts';
 
 export interface PaymentIntentOptions {
   orderId: string;

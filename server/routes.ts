@@ -1,7 +1,7 @@
-import express, { Request, Response } from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { db } from './db.ts';
 import { paymentService } from './payment/PaymentService.ts';
-import {
+import type {
   User,
   Product,
   Category,
