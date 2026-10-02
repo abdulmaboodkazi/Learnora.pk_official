@@ -334,20 +334,42 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
   // Handlers for Products
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct?.name || !editingProduct?.price || !editingProduct?.categoryId) {
-      showToast('Name, price and category are required.', 'error');
+    if (!editingProduct?.name?.trim() || editingProduct?.price === undefined) {
+      showToast('Product name and price are required.', 'error');
       return;
     }
 
+    const categoryId = editingProduct.categoryId || categories[0]?.id || 'cat_edu';
+    const rawImage = typeof editingProduct.images?.[0] === 'string' ? editingProduct.images[0].trim() : '';
+    const images = rawImage
+      ? [rawImage]
+      : ['/src/assets/images/product_building_blocks_1790783483537.jpg'];
+
+    const payload = {
+      ...editingProduct,
+      name: editingProduct.name.trim(),
+      categoryId,
+      images,
+      price: Number(editingProduct.price),
+      salePrice: editingProduct.salePrice ? Number(editingProduct.salePrice) : null,
+      stock: Number(editingProduct.stock ?? 10),
+      brand: editingProduct.brand || 'Learnora Essentials',
+      ageRange: editingProduct.ageRange || '3-5',
+      sku: editingProduct.sku || `LRN-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      isActive: editingProduct.isActive !== false,
+      isFeatured: Boolean(editingProduct.isFeatured),
+    };
+
     try {
       if (editingProduct.id) {
-        await api.updateProduct(editingProduct.id, editingProduct);
+        await api.updateProduct(editingProduct.id, payload);
         showToast('Product updated successfully.', 'success');
       } else {
-        await api.createProduct(editingProduct);
+        await api.createProduct(payload);
         showToast('New product added to catalog.', 'success');
       }
       setProductModalOpen(false);
+      setEditingProduct(null);
       loadAllData();
     } catch (err: any) {
       showToast(err.message, 'error');
@@ -360,6 +382,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
       await api.deleteProduct(id);
       showToast('Product deleted.', 'info');
       setProducts((prev) => prev.filter((p) => p.id !== id));
+      loadAllData();
     } catch (err: any) {
       showToast(err.message, 'error');
     }
@@ -368,17 +391,52 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
   // Handlers for Categories
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCategory?.name) return;
+    if (!editingCategory?.name?.trim()) {
+      showToast('Category name is required.', 'error');
+      return;
+    }
+    const payload = {
+      ...editingCategory,
+      name: editingCategory.name.trim(),
+      image: editingCategory.image || '/src/assets/images/product_building_blocks_1790783483537.jpg',
+      sortOrder: Number(editingCategory.sortOrder || 1),
+      isActive: editingCategory.isActive !== false,
+    };
+
     try {
       if (editingCategory.id) {
-        await api.updateCategory(editingCategory.id, editingCategory);
-        showToast('Category updated.', 'success');
+        await api.updateCategory(editingCategory.id, payload);
+        showToast('Category updated successfully.', 'success');
       } else {
-        await api.createCategory(editingCategory);
-        showToast('Category created.', 'success');
+        await api.createCategory(payload);
+        showToast('Category created successfully.', 'success');
       }
       setCategoryModalOpen(false);
+      setEditingCategory(null);
       loadAllData();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category? Products in this category may become uncategorized.')) return;
+    try {
+      await api.deleteCategory(id);
+      showToast('Category deleted.', 'info');
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleToggleCategoryStatus = async (cat: Category) => {
+    try {
+      const newActive = !cat.isActive;
+      await api.updateCategory(cat.id, { isActive: newActive });
+      showToast(`Category ${newActive ? 'activated' : 'hidden from public storefront'}.`, 'success');
+      setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, isActive: newActive } : c)));
     } catch (err: any) {
       showToast(err.message, 'error');
     }
@@ -860,25 +918,60 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
                 {categories.map((c) => (
                   <div
                     key={c.id}
-                    className="p-4 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-4 text-xs"
+                    className="p-4 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-4 text-xs bg-white shadow-2xs hover:border-slate-300 transition-all"
                   >
-                    <div className="flex items-center gap-3">
-                      <img src={c.image} alt="" className="w-12 h-12 object-cover rounded-xl bg-slate-100 shrink-0" />
-                      <div>
-                        <h4 className="font-bold text-slate-900">{c.name}</h4>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={c.image}
+                        alt=""
+                        className="w-12 h-12 object-cover rounded-xl bg-slate-100 shrink-0 border border-slate-100"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-900 truncate">{c.name}</h4>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCategoryStatus(c)}
+                            title="Click to toggle visibility in storefront"
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                              c.isActive
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            }`}
+                          >
+                            {c.isActive ? 'ACTIVE' : 'HIDDEN'}
+                          </button>
+                        </div>
                         <p className="text-slate-500 text-[11px] line-clamp-1">{c.description}</p>
-                        <span className="text-[10px] text-slate-400">Slug: /{c.slug}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                          <span>/{c.slug}</span>
+                          <span>·</span>
+                          <span>Order: #{c.sortOrder}</span>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setEditingCategory(c);
-                        setCategoryModalOpen(true);
-                      }}
-                      className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCategory(c);
+                          setCategoryModalOpen(true);
+                        }}
+                        className="p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="Edit Category"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(c.id)}
+                        className="p-2 text-rose-600 hover:text-rose-800 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1522,46 +1615,105 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
               <h3 className="text-base font-bold text-slate-900">
                 {editingProduct.id ? 'Edit Product' : 'Add New Product'}
               </h3>
-              <button onClick={() => setProductModalOpen(false)}>
-                <X className="w-5 h-5 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => {
+                  setProductModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Product Name</label>
+                <label className="block font-semibold text-slate-700 mb-1">Product Name *</label>
                 <input
                   type="text"
                   required
                   value={editingProduct.name || ''}
                   onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
                   placeholder="e.g. Montessori Wooden Arches"
-                  className="w-full px-3 py-2 border rounded-xl outline-none"
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-bold"
                 />
+              </div>
+
+              {/* Product Image URL with quick presets */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Primary Product Image *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingProduct.images?.[0] || ''}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      images: [e.target.value],
+                    })
+                  }
+                  placeholder="/src/assets/images/... or https://..."
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-mono text-[11px]"
+                />
+
+                <div className="mt-2 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 font-medium">Quick studio photography presets:</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Building Blocks', url: '/src/assets/images/product_building_blocks_1790783483537.jpg' },
+                      { label: 'STEM Robotics', url: '/src/assets/images/product_stem_robotics_1790783464103.jpg' },
+                      { label: 'Wooden Dollhouse', url: '/src/assets/images/product_wooden_dollhouse_1790783499318.jpg' },
+                      { label: 'Kids Playtime', url: '/src/assets/images/hero_kids_playtime_1790783444732.jpg' },
+                      { label: 'Creative Crafts', url: '/src/assets/images/hero_creative_crafts_1790785215362.jpg' },
+                      { label: 'Family Board Games', url: '/src/assets/images/hero_family_playtime_1790785198699.jpg' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.url}
+                        type="button"
+                        onClick={() =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            images: [preset.url],
+                          })
+                        }
+                        className={`p-1 border rounded-xl text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          editingProduct.images?.[0] === preset.url ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={preset.url} alt="" className="w-full h-10 object-cover rounded-lg" />
+                        <span className="text-[10px] font-semibold text-slate-700 truncate">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Regular Price (Rs.)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Regular Price (Rs.) *</label>
                   <input
                     type="number"
                     required
-                    value={editingProduct.price || 0}
+                    min={0}
+                    value={editingProduct.price ?? ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, price: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                    className="w-full px-3 py-2 border rounded-xl outline-none font-semibold"
                   />
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Sale Price (Optional)</label>
                   <input
                     type="number"
-                    value={editingProduct.salePrice || ''}
+                    min={0}
+                    value={editingProduct.salePrice ?? ''}
                     onChange={(e) =>
                       setEditingProduct({
                         ...editingProduct,
                         salePrice: e.target.value ? Number(e.target.value) : null,
                       })
                     }
+                    placeholder="Discounted price"
                     className="w-full px-3 py-2 border rounded-xl outline-none"
                   />
                 </div>
@@ -1569,9 +1721,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Category *</label>
                   <select
-                    value={editingProduct.categoryId}
+                    value={editingProduct.categoryId || categories[0]?.id || ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, categoryId: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl outline-none bg-white font-medium"
                   >
@@ -1585,7 +1737,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Age Recommendation</label>
                   <select
-                    value={editingProduct.ageRange}
+                    value={editingProduct.ageRange || '3-5'}
                     onChange={(e) => setEditingProduct({ ...editingProduct, ageRange: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl outline-none bg-white font-medium"
                   >
@@ -1598,21 +1750,33 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Stock Quantity</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Stock Units *</label>
                   <input
                     type="number"
                     required
-                    value={editingProduct.stock || 0}
+                    min={0}
+                    value={editingProduct.stock ?? 10}
                     onChange={(e) => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })}
                     className="w-full px-3 py-2 border rounded-xl outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Brand Name</label>
+                  <label className="block font-semibold text-slate-700 mb-1">SKU / Code</label>
                   <input
                     type="text"
+                    placeholder="e.g. LRN-TOY-01"
+                    value={editingProduct.sku || ''}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none font-mono text-[11px]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Brand</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Learnora"
                     value={editingProduct.brand || ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
                     className="w-full px-3 py-2 border rounded-xl outline-none"
@@ -1621,28 +1785,202 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                <label className="block font-semibold text-slate-700 mb-1">Product Description</label>
                 <textarea
                   rows={2}
+                  placeholder="Detail product safety, materials, and learning developmental benefits..."
                   value={editingProduct.description || ''}
                   onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded-xl outline-none"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="prod_featured"
+                    checked={Boolean(editingProduct.isFeatured)}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, isFeatured: e.target.checked })}
+                    className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="prod_featured" className="font-semibold text-slate-700 cursor-pointer">
+                    Featured on homepage
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="prod_active"
+                    checked={editingProduct.isActive !== false}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="prod_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Active in storefront
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
                 <button
                   type="button"
-                  onClick={() => setProductModalOpen(false)}
-                  className="flex-1 py-2.5 bg-slate-100 rounded-xl font-semibold"
+                  onClick={() => {
+                    setProductModalOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors cursor-pointer shadow-md"
                 >
-                  Save Product
+                  {editingProduct.id ? 'Update Product' : 'Create Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==============================================================
+          MODAL: ADD / EDIT CATEGORY
+          ============================================================== */}
+      {categoryModalOpen && editingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingCategory.id ? 'Edit Department / Category' : 'Add New Department / Category'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryModalOpen(false);
+                  setEditingCategory(null);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. STEM Robotics, Montessori Toys, Kids Books"
+                  value={editingCategory.name || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Slug (URL Route)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. stem-robotics (auto-generated if blank)"
+                  value={editingCategory.slug || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, slug: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-mono text-[11px]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Brief summary for category headers and collection cards..."
+                  value={editingCategory.description || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Category Image URL *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingCategory.image || ''}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, image: e.target.value })}
+                  placeholder="/src/assets/images/... or https://..."
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-mono text-[11px]"
+                />
+
+                <div className="mt-2 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 font-medium">Quick studio photo selector:</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Building Blocks', url: '/src/assets/images/product_building_blocks_1790783483537.jpg' },
+                      { label: 'STEM Robotics', url: '/src/assets/images/product_stem_robotics_1790783464103.jpg' },
+                      { label: 'Dollhouse Heritage', url: '/src/assets/images/product_wooden_dollhouse_1790783499318.jpg' },
+                      { label: 'Kids Playtime', url: '/src/assets/images/hero_kids_playtime_1790783444732.jpg' },
+                      { label: 'Creative Crafts', url: '/src/assets/images/hero_creative_crafts_1790785215362.jpg' },
+                      { label: 'Family Board Games', url: '/src/assets/images/hero_family_playtime_1790785198699.jpg' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.url}
+                        type="button"
+                        onClick={() => setEditingCategory({ ...editingCategory, image: preset.url })}
+                        className={`p-1 border rounded-xl text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          editingCategory.image === preset.url ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={preset.url} alt="" className="w-full h-10 object-cover rounded-lg" />
+                        <span className="text-[10px] font-semibold text-slate-700 truncate">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingCategory.sortOrder || 1}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, sortOrder: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                  />
+                </div>
+                <div className="pt-4 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="cat_active"
+                    checked={editingCategory.isActive !== false}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, isActive: e.target.checked })}
+                    className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="cat_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Visible in navigation
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryModalOpen(false);
+                    setEditingCategory(null);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors cursor-pointer shadow-md"
+                >
+                  {editingCategory.id ? 'Update Category' : 'Create Category'}
                 </button>
               </div>
             </form>

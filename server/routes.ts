@@ -499,14 +499,18 @@ router.delete('/products/:id', requireAdmin, (req: Request, res: Response) => {
    3. CATEGORIES
    ========================================================================== */
 
-router.get('/categories', (_req: Request, res: Response) => {
-  const categories = db.get('categories').filter((c) => c.isActive);
+router.get('/categories', (req: Request, res: Response) => {
+  const user = getAuthUser(req);
+  let categories = db.get('categories');
+  if (!user || user.role !== 'admin') {
+    categories = categories.filter((c) => c.isActive);
+  }
   categories.sort((a, b) => a.sortOrder - b.sortOrder);
   return res.json({ success: true, categories });
 });
 
 router.post('/categories', requireAdmin, (req: Request, res: Response) => {
-  const { name, description, image, parentId, sortOrder } = req.body;
+  const { name, description, image, parentId, sortOrder, isActive } = req.body;
   if (!name) return res.status(400).json({ success: false, message: 'Category name is required.' });
 
   const slug = req.body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -518,7 +522,7 @@ router.post('/categories', requireAdmin, (req: Request, res: Response) => {
     image: image || '/src/assets/images/product_building_blocks_1790783483537.jpg',
     parentId: parentId || null,
     sortOrder: sortOrder ?? 99,
-    isActive: true,
+    isActive: isActive !== undefined ? Boolean(isActive) : true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
