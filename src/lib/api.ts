@@ -26,6 +26,12 @@ export function getSessionId(): string {
   return sid;
 }
 
+export function resetSessionId(): string {
+  const sid = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  localStorage.setItem(SESSION_KEY, sid);
+  return sid;
+}
+
 export function getAuthToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }

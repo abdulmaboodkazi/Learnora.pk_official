@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types/index.ts';
-import { api, setAuthToken, getSessionId } from '../lib/api.ts';
+import { api, setAuthToken, getSessionId, resetSessionId } from '../lib/api.ts';
 
 interface AuthContextType {
   user: User | null;
@@ -81,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setAuthToken(null);
     setUser(null);
+    resetSessionId();
   };
 
   const updateProfile = async (data: Partial<User>) => {

@@ -32,6 +32,11 @@ import {
   EyeOff,
   ShieldCheck,
   ArrowLeft,
+  Search,
+  Filter,
+  Phone,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -104,6 +109,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
 
   // Bank Transfer verification modal
   const [bankVerifyOrder, setBankVerifyOrder] = useState<Order | null>(null);
+
+  // Customer details modal & search filter
+  const [selectedCustomerDetail, setSelectedCustomerDetail] = useState<any | null>(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [orderCustomerFilter, setOrderCustomerFilter] = useState('');
 
   // Check admin authorization
   const isAdmin = user && user.role === 'admin';
@@ -453,13 +463,78 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
     try {
       if (editingCoupon.id) {
         await api.updateCoupon(editingCoupon.id, editingCoupon);
-        showToast('Coupon updated.', 'success');
+        showToast('Coupon updated successfully.', 'success');
       } else {
         await api.createCoupon(editingCoupon);
-        showToast('Coupon activated.', 'success');
+        showToast('Coupon created & activated.', 'success');
       }
       setCouponModalOpen(false);
+      setEditingCoupon(null);
       loadAllData();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this coupon?')) return;
+    try {
+      await api.deleteCoupon(id);
+      showToast('Coupon removed.', 'info');
+      setCoupons((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleToggleCouponStatus = async (coupon: Coupon) => {
+    try {
+      const newActive = !coupon.active;
+      await api.updateCoupon(coupon.id, { active: newActive });
+      showToast(`Coupon ${newActive ? 'activated' : 'deactivated'}.`, 'success');
+      setCoupons((prev) => prev.map((c) => (c.id === coupon.id ? { ...c, active: newActive } : c)));
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  // Handlers for Banners & CMS
+  const handleSaveBanner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBanner?.title) return;
+    try {
+      if (editingBanner.id) {
+        await api.updateBanner(editingBanner.id, editingBanner);
+        showToast('Banner updated successfully.', 'success');
+      } else {
+        await api.createBanner(editingBanner);
+        showToast('Banner created successfully.', 'success');
+      }
+      setBannerModalOpen(false);
+      setEditingBanner(null);
+      loadAllData();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this promotional banner?')) return;
+    try {
+      await api.deleteBanner(id);
+      showToast('Banner deleted.', 'info');
+      setBanners((prev) => prev.filter((b) => b.id !== id));
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleToggleBannerStatus = async (banner: Banner) => {
+    try {
+      const newActive = !banner.active;
+      await api.updateBanner(banner.id, { active: newActive });
+      showToast(`Banner ${newActive ? 'activated' : 'deactivated'}.`, 'success');
+      setBanners((prev) => prev.map((b) => (b.id === banner.id ? { ...b, active: newActive } : b)));
     } catch (err: any) {
       showToast(err.message, 'error');
     }
@@ -815,15 +890,55 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
               ============================================================== */}
           {activeTab === 'orders' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Order Dispatch & Status Pipeline</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Update logistics statuses, manage courier tracking and verify payments
-                </p>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Order Dispatch & Status Pipeline</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Live orders placed by registered customers and guests
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search user, email or #order..."
+                      value={orderCustomerFilter}
+                      onChange={(e) => setOrderCustomerFilter(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:border-slate-400"
+                    />
+                  </div>
+                  {orderCustomerFilter && (
+                    <button
+                      onClick={() => setOrderCustomerFilter('')}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold shrink-0"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {orderCustomerFilter && (
+                <div className="px-3.5 py-2 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between text-xs text-amber-900">
+                  <span>Filtered by customer query: <strong>{orderCustomerFilter}</strong></span>
+                  <button onClick={() => setOrderCustomerFilter('')} className="font-bold underline text-amber-800">Show All Orders</button>
+                </div>
+              )}
+
               <div className="space-y-3">
-                {orders.map((o) => (
+                {orders
+                  .filter((o) => {
+                    if (!orderCustomerFilter) return true;
+                    const q = orderCustomerFilter.toLowerCase();
+                    return (
+                      o.userId.toLowerCase().includes(q) ||
+                      o.customerEmail.toLowerCase().includes(q) ||
+                      o.customerName.toLowerCase().includes(q) ||
+                      o.orderNumber.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((o) => (
                   <div
                     key={o.id}
                     className="p-4 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
@@ -1023,44 +1138,82 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Promotions & Discount Coupons</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Manage fixed or percentage cart discounts</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Manage fixed or percentage promotional cart discount codes</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setEditingCoupon({
-                      code: 'SPRING15',
+                      code: '',
                       discountType: 'percentage',
-                      discountValue: 15,
-                      minimumOrder: 2000,
+                      discountValue: 10,
+                      minimumOrder: 1500,
+                      maximumDiscount: 1000,
+                      usageLimit: 500,
                       active: true,
                     });
                     setCouponModalOpen(true);
                   }}
-                  className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Create Coupon</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {coupons.map((coup) => (
-                  <div key={coup.id} className="p-4 border border-slate-200/80 rounded-2xl space-y-2 text-xs">
+                  <div key={coup.id} className="p-4 border border-slate-200/80 rounded-2xl space-y-3 text-xs bg-white shadow-xs hover:border-slate-300 transition-all">
                     <div className="flex justify-between items-center">
-                      <span className="font-extrabold text-sm text-slate-900 font-mono tracking-wider">
+                      <span className="font-extrabold text-sm text-slate-900 font-mono tracking-wider bg-slate-100 px-2.5 py-1 rounded-lg">
                         {coup.code}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${coup.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCouponStatus(coup)}
+                        title="Click to toggle coupon active status"
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition-colors ${
+                          coup.active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
                         {coup.active ? 'ACTIVE' : 'INACTIVE'}
-                      </span>
+                      </button>
                     </div>
-                    <p className="text-slate-600">
-                      Discount: {coup.discountValue}
-                      {coup.discountType === 'percentage' ? '%' : ' Rs.'} off orders over Rs.{' '}
-                      {coup.minimumOrder.toLocaleString()}
-                    </p>
-                    <p className="text-slate-400 text-[11px]">Used: {coup.usedCount} times</p>
+
+                    <div className="space-y-1">
+                      <p className="text-slate-800 font-semibold">
+                        Discount: <span className="text-amber-700 font-bold">{coup.discountValue}{coup.discountType === 'percentage' ? '%' : ' Rs.'} OFF</span>
+                      </p>
+                      <p className="text-slate-500 text-[11px]">
+                        Min Order: <strong>Rs. {coup.minimumOrder.toLocaleString()}</strong>
+                        {coup.maximumDiscount ? ` · Max Cap: Rs. ${coup.maximumDiscount.toLocaleString()}` : ''}
+                      </p>
+                      <p className="text-slate-400 text-[11px]">Used: <strong>{coup.usedCount}</strong> times {coup.usageLimit ? `/ ${coup.usageLimit} limit` : ''}</p>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCoupon(coup);
+                          setCouponModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 text-slate-700 hover:bg-slate-100 rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Edit Coupon"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCoupon(coup.id)}
+                        className="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Remove Coupon"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1128,21 +1281,82 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">CMS Promotional Banners</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Manage homepage campaigns</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Manage homepage campaigns, carousel slides and promotional highlights</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingBanner({
+                      title: '',
+                      subtitle: '',
+                      image: '/src/assets/images/hero_kids_playtime_1790783444732.jpg',
+                      ctaText: 'Shop Now',
+                      link: '/shop',
+                      sortOrder: banners.length + 1,
+                      active: true,
+                    });
+                    setBannerModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Banner</span>
+                </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {banners.map((b) => (
                   <div
                     key={b.id}
-                    className="p-4 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row items-center gap-4 text-xs"
+                    className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-3 text-xs bg-white shadow-xs hover:border-slate-300 transition-all"
                   >
-                    <img src={b.image} alt="" className="w-28 h-18 object-cover rounded-xl bg-slate-100 shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="font-bold text-slate-900">{b.title}</h4>
-                      <p className="text-slate-500 mt-0.5">{b.subtitle}</p>
-                      <p className="text-[11px] text-amber-700 font-semibold mt-1">CTA: {b.ctaText} → {b.link}</p>
+                    <div className="relative aspect-16/9 w-full rounded-xl overflow-hidden bg-slate-100">
+                      <img src={b.image} alt={b.title} className="w-full h-full object-cover" />
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBannerStatus(b)}
+                          title="Click to toggle banner active state"
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-xs cursor-pointer backdrop-blur-md transition-colors ${
+                            b.active ? 'bg-emerald-600/90 text-white hover:bg-emerald-700' : 'bg-slate-800/85 text-white hover:bg-slate-900'
+                          }`}
+                        >
+                          {b.active ? 'ACTIVE' : 'INACTIVE'}
+                        </button>
+                      </div>
+                      <div className="absolute bottom-2 left-2 bg-slate-950/70 text-white px-2 py-0.5 rounded text-[10px] font-semibold">
+                        Order #{b.sortOrder}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-slate-900 text-sm">{b.title}</h4>
+                      <p className="text-slate-500 line-clamp-2">{b.subtitle}</p>
+                      <p className="text-[11px] text-amber-700 font-semibold pt-1">
+                        CTA: <strong>{b.ctaText}</strong> → <span className="font-mono text-slate-600">{b.link}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingBanner(b);
+                          setBannerModalOpen(true);
+                        }}
+                        className="px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Edit Banner"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBanner(b.id)}
+                        className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Delete Banner"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1151,41 +1365,108 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
           )}
 
           {/* ==============================================================
-              TAB 10: CUSTOMER DIRECTORY
+              TAB 10: CUSTOMER DIRECTORY & USER DATA
               ============================================================== */}
           {activeTab === 'customers' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Registered Customer Accounts</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Customer spending and profile tracking</p>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Registered Customer Accounts</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Live logged-in customers, their spending, order count, and registered activity
+                  </p>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by customer name, email..."
+                    value={customerSearchQuery}
+                    onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:border-slate-400"
+                  />
+                </div>
               </div>
 
-              <div className="border border-slate-200/80 rounded-2xl overflow-x-auto text-xs">
+              <div className="border border-slate-200/80 rounded-2xl overflow-x-auto text-xs bg-white shadow-xs">
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600">
                     <tr>
                       <th className="p-3">Customer</th>
                       <th className="p-3">Contact</th>
-                      <th className="p-3">Orders</th>
+                      <th className="p-3">Orders Placed</th>
                       <th className="p-3">Total Spend</th>
                       <th className="p-3">Auth Providers</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {customers.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-50/60">
-                        <td className="p-3 font-semibold text-slate-900">{c.name}</td>
-                        <td className="p-3 text-slate-600">
-                          {c.email}
-                          {c.phone && <div className="text-[11px] text-slate-400">{c.phone}</div>}
-                        </td>
-                        <td className="p-3 font-bold tabular-nums">{c.orderCount || 0}</td>
-                        <td className="p-3 font-extrabold text-slate-900 tabular-nums">
-                          Rs. {(c.totalSpent || 0).toLocaleString()}
-                        </td>
-                        <td className="p-3 capitalize">{c.connectedProviders?.join(', ')}</td>
-                      </tr>
-                    ))}
+                    {customers
+                      .filter((c) => {
+                        if (!customerSearchQuery) return true;
+                        const q = customerSearchQuery.toLowerCase();
+                        return (
+                          c.name.toLowerCase().includes(q) ||
+                          c.email.toLowerCase().includes(q) ||
+                          (c.phone && c.phone.includes(q))
+                        );
+                      })
+                      .map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700">
+                                {c.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-slate-900 block">{c.name}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">ID: {c.id}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 text-slate-600">
+                            <div>{c.email}</div>
+                            {c.phone && <div className="text-[11px] text-slate-400">{c.phone}</div>}
+                          </td>
+                          <td className="p-3 font-bold tabular-nums">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800">
+                              {c.orderCount || 0} orders
+                            </span>
+                          </td>
+                          <td className="p-3 font-extrabold text-slate-900 tabular-nums">
+                            Rs. {(c.totalSpent || 0).toLocaleString()}
+                          </td>
+                          <td className="p-3 capitalize">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-medium">
+                              {c.connectedProviders?.join(', ') || 'email'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCustomerDetail(c)}
+                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Inspect this user's data & orders"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Inspect Data</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOrderCustomerFilter(c.email);
+                                  setActiveTab('orders');
+                                }}
+                                className="px-2 py-1 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer"
+                                title="Filter orders placed by this customer"
+                              >
+                                Filter Orders
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -1520,6 +1801,420 @@ export const AdminDashboardPage: React.FC<AdminDashboardProps> = ({ onNavigate, 
                 className="flex-1 py-2 bg-purple-700 text-white rounded-xl font-bold hover:bg-purple-800"
               >
                 Execute Refund
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==============================================================
+          MODAL: ADD / EDIT COUPON
+          ============================================================== */}
+      {couponModalOpen && editingCoupon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs my-8">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingCoupon.id ? 'Edit Promotional Coupon' : 'Create New Coupon'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setCouponModalOpen(false);
+                  setEditingCoupon(null);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCoupon} className="space-y-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Coupon Promo Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. SUMMER25, FESTIVE500"
+                  value={editingCoupon.code || ''}
+                  onChange={(e) => setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase().trim() })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-mono uppercase tracking-wider font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Discount Type</label>
+                  <select
+                    value={editingCoupon.discountType || 'percentage'}
+                    onChange={(e) => setEditingCoupon({ ...editingCoupon, discountType: e.target.value as 'percentage' | 'fixed' })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none bg-white font-medium"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed Cash (Rs.)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Discount Value *</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={editingCoupon.discountValue || ''}
+                    onChange={(e) => setEditingCoupon({ ...editingCoupon, discountValue: Number(e.target.value) })}
+                    placeholder={editingCoupon.discountType === 'percentage' ? 'e.g. 15 (%)' : 'e.g. 500 (Rs.)'}
+                    className="w-full px-3 py-2 border rounded-xl outline-none font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Minimum Order (Rs.)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingCoupon.minimumOrder || 0}
+                    onChange={(e) => setEditingCoupon({ ...editingCoupon, minimumOrder: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Max Cap (Rs. Optional)</label>
+                  <input
+                    type="number"
+                    value={editingCoupon.maximumDiscount || ''}
+                    onChange={(e) => setEditingCoupon({ ...editingCoupon, maximumDiscount: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="e.g. 2000"
+                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="coupon_active"
+                  checked={editingCoupon.active !== false}
+                  onChange={(e) => setEditingCoupon({ ...editingCoupon, active: e.target.checked })}
+                  className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                />
+                <label htmlFor="coupon_active" className="font-semibold text-slate-700 cursor-pointer">
+                  Activate coupon immediately for customers
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponModalOpen(false);
+                    setEditingCoupon(null);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-md transition-colors cursor-pointer"
+                >
+                  {editingCoupon.id ? 'Save Changes' : 'Create Coupon'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==============================================================
+          MODAL: ADD / EDIT BANNER
+          ============================================================== */}
+      {bannerModalOpen && editingBanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingBanner.id ? 'Edit Promotional Banner' : 'Add New Promotional Banner'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerModalOpen(false);
+                  setEditingBanner(null);
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBanner} className="space-y-3.5">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Banner Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Summer Family Play & Robotics Extravaganza"
+                  value={editingBanner.title || ''}
+                  onChange={(e) => setEditingBanner({ ...editingBanner, title: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Subtitle / Campaign Message *</label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="e.g. Safe, creative and educational play essentials for growing children."
+                  value={editingBanner.subtitle || ''}
+                  onChange={(e) => setEditingBanner({ ...editingBanner, subtitle: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Banner Image URL *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingBanner.image || ''}
+                  onChange={(e) => setEditingBanner({ ...editingBanner, image: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-xl outline-none font-mono text-[11px]"
+                />
+
+                {/* Presets selector */}
+                <div className="mt-2 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 font-medium">Or pick from curated studio photography:</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Kids Playtime', url: '/src/assets/images/hero_kids_playtime_1790783444732.jpg' },
+                      { label: 'Family Board Games', url: '/src/assets/images/hero_family_playtime_1790785198699.jpg' },
+                      { label: 'Creative Crafts', url: '/src/assets/images/hero_creative_crafts_1790785215362.jpg' },
+                      { label: 'STEM Robotics', url: '/src/assets/images/product_stem_robotics_1790783464103.jpg' },
+                      { label: 'Building Blocks', url: '/src/assets/images/product_building_blocks_1790783483537.jpg' },
+                      { label: 'Dollhouse Heritage', url: '/src/assets/images/product_wooden_dollhouse_1790783499318.jpg' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.url}
+                        type="button"
+                        onClick={() => setEditingBanner({ ...editingBanner, image: preset.url })}
+                        className={`p-1.5 border rounded-xl text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                          editingBanner.image === preset.url ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={preset.url} alt="" className="w-full h-12 object-cover rounded-lg" />
+                        <span className="text-[10px] font-semibold text-slate-700 truncate">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Button CTA Text</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Explore Collection"
+                    value={editingBanner.ctaText || 'Shop Now'}
+                    onChange={(e) => setEditingBanner({ ...editingBanner, ctaText: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Target Link URL</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. /shop, /category/stem-toys"
+                    value={editingBanner.link || '/shop'}
+                    onChange={(e) => setEditingBanner({ ...editingBanner, link: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Sort Carousel Order</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingBanner.sortOrder || 1}
+                    onChange={(e) => setEditingBanner({ ...editingBanner, sortOrder: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-xl outline-none"
+                  />
+                </div>
+                <div className="pt-4 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="banner_active"
+                    checked={editingBanner.active !== false}
+                    onChange={(e) => setEditingBanner({ ...editingBanner, active: e.target.checked })}
+                    className="w-4 h-4 rounded text-slate-900 accent-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="banner_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Show on live homepage
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBannerModalOpen(false);
+                    setEditingBanner(null);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-md transition-colors cursor-pointer"
+                >
+                  {editingBanner.id ? 'Save Banner' : 'Create Banner'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==============================================================
+          MODAL: CUSTOMER DETAIL & USER DATA INSPECT
+          ============================================================== */}
+      {selectedCustomerDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5 my-8 max-h-[90vh] overflow-y-auto text-xs">
+            <div className="flex justify-between items-start pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-900 font-extrabold flex items-center justify-center text-base border border-amber-200">
+                  {selectedCustomerDetail.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">{selectedCustomerDetail.name}</h3>
+                  <p className="text-slate-500 font-medium">
+                    {selectedCustomerDetail.email} {selectedCustomerDetail.phone ? `· ${selectedCustomerDetail.phone}` : ''}
+                  </p>
+                  <span className="text-[10px] text-slate-400 font-mono">User ID: {selectedCustomerDetail.id}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerDetail(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider block">Total Spent</span>
+                <span className="text-base font-black text-slate-900 tabular-nums">
+                  Rs. {(selectedCustomerDetail.totalSpent || 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider block">Orders Count</span>
+                <span className="text-base font-black text-slate-900 tabular-nums">
+                  {selectedCustomerDetail.orderCount || 0}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider block">Joined Since</span>
+                <span className="text-xs font-bold text-slate-700 block truncate">
+                  {selectedCustomerDetail.createdAt ? new Date(selectedCustomerDetail.createdAt).toLocaleDateString() : 'Active Member'}
+                </span>
+              </div>
+            </div>
+
+            {/* Saved Addresses */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                <span>Saved Shipping Addresses ({selectedCustomerDetail.addresses?.length || 0})</span>
+              </h4>
+              {selectedCustomerDetail.addresses && selectedCustomerDetail.addresses.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {selectedCustomerDetail.addresses.map((a: any) => (
+                    <div key={a.id} className="p-3 border border-slate-200/80 rounded-xl bg-slate-50/50 space-y-0.5 text-[11px]">
+                      <div className="font-bold text-slate-900 flex justify-between">
+                        <span>{a.fullName}</span>
+                        {a.isDefault && <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold">DEFAULT</span>}
+                      </div>
+                      <p className="text-slate-600">{a.houseFlat} {a.street}, {a.area}</p>
+                      <p className="text-slate-500">{a.city}, {a.province} {a.postalCode}</p>
+                      <p className="text-slate-400 font-mono">{a.phone}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-[11px] italic p-3 bg-slate-50 rounded-xl">No saved address records yet.</p>
+              )}
+            </div>
+
+            {/* Orders Placed by this User */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Orders Placed by this Customer ({selectedCustomerDetail.orders?.length || 0})</span>
+                </h4>
+                {selectedCustomerDetail.orders && selectedCustomerDetail.orders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderCustomerFilter(selectedCustomerDetail.email);
+                      setSelectedCustomerDetail(null);
+                      setActiveTab('orders');
+                    }}
+                    className="text-[11px] font-bold text-amber-700 hover:underline cursor-pointer"
+                  >
+                    View in Pipeline →
+                  </button>
+                )}
+              </div>
+
+              {selectedCustomerDetail.orders && selectedCustomerDetail.orders.length > 0 ? (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {selectedCustomerDetail.orders.map((o: any) => (
+                    <div key={o.id} className="p-3 border border-slate-200/80 rounded-xl bg-white shadow-2xs space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-900">#{o.orderNumber}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">{o.orderStatus}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${o.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{o.paymentStatus}</span>
+                        </div>
+                      </div>
+                      <p className="text-slate-600 text-[11px]">
+                        {o.items?.map((item: any) => `${item.quantity}× ${item.productName}`).join(', ')}
+                      </p>
+                      <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-slate-50">
+                        <span>{new Date(o.createdAt).toLocaleDateString()}</span>
+                        <span className="font-extrabold text-slate-900 tabular-nums">Total: Rs. {o.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-[11px] italic p-3 bg-slate-50 rounded-xl">Customer has not placed any orders yet.</p>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerDetail(null)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors cursor-pointer"
+              >
+                Close Customer Profile
               </button>
             </div>
           </div>

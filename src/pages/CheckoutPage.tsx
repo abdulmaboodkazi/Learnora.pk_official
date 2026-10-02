@@ -34,17 +34,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate, onOpenAu
   // Form states
   const [customerName, setCustomerName] = useState(user?.name || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
-  const [customerPhone, setCustomerPhone] = useState(user?.phone || '+92 321 9876543');
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
 
   // Address
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('new');
-  const [houseFlat, setHouseFlat] = useState('House # 12-A');
-  const [street, setStreet] = useState('Street 4, Sector F-7/2');
-  const [area, setArea] = useState('Islamabad Capital Territory');
-  const [city, setCity] = useState('Islamabad');
-  const [province, setProvince] = useState('Federal Territory');
-  const [postalCode, setPostalCode] = useState('44000');
+  const [houseFlat, setHouseFlat] = useState('');
+  const [street, setStreet] = useState('');
+  const [area, setArea] = useState('');
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [saveAddressForLater, setSaveAddressForLater] = useState(true);
 
   // Shipping (Standard Nationwide Delivery only)
@@ -69,9 +69,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate, onOpenAu
 
   useEffect(() => {
     if (user) {
-      setCustomerName(user.name);
-      setCustomerEmail(user.email);
-      if (user.phone) setCustomerPhone(user.phone);
+      setCustomerName(user.name || '');
+      setCustomerEmail(user.email || '');
+      setCustomerPhone(user.phone || '');
 
       api.getAddresses().then((res) => {
         if (res.addresses && res.addresses.length > 0) {
@@ -79,8 +79,23 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate, onOpenAu
           const defaultAddr = res.addresses.find((a) => a.isDefault) || res.addresses[0];
           setSelectedAddressId(defaultAddr.id);
           populateAddressFields(defaultAddr);
+        } else {
+          setSavedAddresses([]);
+          setSelectedAddressId('new');
         }
       }).catch(() => {});
+    } else {
+      setCustomerName('');
+      setCustomerEmail('');
+      setCustomerPhone('');
+      setSavedAddresses([]);
+      setSelectedAddressId('new');
+      setHouseFlat('');
+      setStreet('');
+      setArea('');
+      setCity('');
+      setProvince('');
+      setPostalCode('');
     }
   }, [user]);
 

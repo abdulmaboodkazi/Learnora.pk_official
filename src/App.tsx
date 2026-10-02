@@ -110,6 +110,21 @@ export default function App() {
       return <WishlistPage onNavigate={navigate} />;
     }
 
+    // 8b. Direct Orders & Order History shortcut routes
+    if (pathname === '/orders' || pathname === '/order-history' || pathname.startsWith('/orders/')) {
+      const selectedOrderId = pathname.startsWith('/orders/')
+        ? pathname.replace('/orders/', '')
+        : undefined;
+      return (
+        <AccountPage
+          onNavigate={navigate}
+          subview="orders"
+          selectedOrderId={selectedOrderId}
+          onOpenAuth={() => setAuthModalOpen(true)}
+        />
+      );
+    }
+
     // 9. Account & Order Tracking: /account, /account/orders, /account/orders/:id, /account/addresses
     if (pathname.startsWith('/account')) {
       let subview = 'orders';

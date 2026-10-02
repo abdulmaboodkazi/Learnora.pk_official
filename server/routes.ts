@@ -1009,11 +1009,26 @@ router.get('/orders/:id', (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'Order not found.' });
   }
 
-  if (!user && req.query.email !== order.customerEmail) {
-    return res.json({ success: true, order }); // Allow guest with order ID lookup
+  // Admin has full visibility
+  if (user && user.role === 'admin') {
+    return res.json({ success: true, order });
   }
 
-  return res.json({ success: true, order });
+  // Authenticated user can only view their own order
+  if (user) {
+    if (order.userId === user.id || order.customerEmail.toLowerCase() === user.email.toLowerCase()) {
+      return res.json({ success: true, order });
+    }
+    return res.status(403).json({ success: false, message: 'Access denied. This order belongs to another account.' });
+  }
+
+  // Guest lookup requires email match
+  const guestEmail = req.query.email as string;
+  if (guestEmail && guestEmail.toLowerCase().trim() === order.customerEmail.toLowerCase().trim()) {
+    return res.json({ success: true, order });
+  }
+
+  return res.status(401).json({ success: false, message: 'Authentication or customer email required to view order.' });
 });
 
 // Admin Update Order Status
@@ -1516,8 +1531,13 @@ router.put('/addresses/:id/default', requireAuth, (req: Request, res: Response) 
    11. BANNERS / CMS
    ========================================================================== */
 
-router.get('/banners', (_req: Request, res: Response) => {
-  const banners = db.get('banners').filter((b) => b.active);
+router.get('/banners', (req: Request, res: Response) => {
+  const user = getAuthUser(req);
+  let banners = db.get('banners');
+  // If not admin, return only active banners for customer storefront
+  if (!user || user.role !== 'admin') {
+    banners = banners.filter((b) => b.active);
+  }
   banners.sort((a, b) => a.sortOrder - b.sortOrder);
   return res.json({ success: true, banners });
 });
@@ -1686,9 +1706,11 @@ router.put('/notifications/:id/read', requireAuth, (req: Request, res: Response)
 router.get('/admin/customers', requireAdmin, (_req: Request, res: Response) => {
   const users = db.get('users').filter((u) => u.role === 'customer');
   const orders = db.get('orders');
+  const addresses = db.get('addresses');
 
   const customerReport = users.map((u) => {
     const userOrders = orders.filter((o) => o.userId === u.id || o.customerEmail.toLowerCase() === u.email.toLowerCase());
+    const userAddresses = addresses.filter((a) => a.userId === u.id);
     const totalSpent = userOrders.reduce((sum, o) => sum + (o.paymentStatus === 'Paid' ? o.total : 0), 0);
     const lastOrder = userOrders.length > 0 ? userOrders[0].createdAt : null;
 
@@ -1702,6 +1724,8 @@ router.get('/admin/customers', requireAdmin, (_req: Request, res: Response) => {
       lastOrder,
       connectedProviders: u.connectedProviders,
       createdAt: u.createdAt,
+      addresses: userAddresses,
+      orders: userOrders,
     };
   });
 
